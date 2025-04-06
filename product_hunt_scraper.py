@@ -1,6 +1,6 @@
-import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
+from security import safe_requests
 
 
 def group_by_number(urls, titles, descs):
@@ -30,7 +30,7 @@ def ph_scrape_urls(url):
     """
     # TODO: refactor this to not require the passing in of the URL
     # Send a GET request to the webpage
-    response = requests.get(url)
+    response = safe_requests.get(url)
 
     # If the GET request is successful, the status code will be 200
     if response.status_code == 200:
@@ -62,7 +62,7 @@ def ph_scrape_text(url):
     """
     # TODO: refactor this to not require the passing in of the URL
     # Send a GET request to the webpage
-    response = requests.get(url)
+    response = safe_requests.get(url)
 
     # If the GET request is successful, the status code will be 200
     if response.status_code == 200:

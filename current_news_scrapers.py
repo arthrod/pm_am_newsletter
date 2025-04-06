@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import date
 from urllib.parse import urlparse
+from security import safe_requests
 
 # Exclude domains that commonly cause errors, do not allow for scraping, or post content that is low-quality/not relevant. I was trying limit the amount of urls that would ultimately be rejected
 # but the internet is too big and this is a losing battle. I just rely on the scrape_articles scrape check functionality to filter things now.
@@ -39,7 +40,7 @@ def get_hn_links():
     one_day_ago = time.time() - 24 * 60 * 60
 
     for story_id in story_ids[:source_url_limit]:  # Only the top 30 to simulate the first page
-        response = requests.get(f'https://hacker-news.firebaseio.com/v0/item/{story_id}.json')
+        response = safe_requests.get(f'https://hacker-news.firebaseio.com/v0/item/{story_id}.json')
         story_data = response.json()
 
         # Not all items are stories (some might be job postings, for example), and not all stories have URLs.
@@ -66,7 +67,7 @@ def get_register_urls():
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
         }
-        response = requests.get(url, headers=headers)
+        response = safe_requests.get(url, headers=headers)
 
         if response.status_code == 200:
             content = response.content
@@ -112,7 +113,7 @@ def get_techmeme_urls():
         today = date.today()
         date_string = today.strftime("%y%m%d")
 
-        response = requests.get(url)
+        response = safe_requests.get(url)
 
         if response.status_code == 200:
             content = response.content

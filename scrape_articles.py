@@ -3,6 +3,7 @@ from urllib.robotparser import RobotFileParser
 from newspaper import Article
 from current_news_scrapers import get_all_urls
 import requests
+from security import safe_requests
 
 request_timeout = 5
 
@@ -18,7 +19,7 @@ def can_fetch(url):
 
     rp = RobotFileParser()
     try:
-        response = requests.get(robots_url, timeout=request_timeout)
+        response = safe_requests.get(robots_url, timeout=request_timeout)
         response.raise_for_status()  # raise exception if invalid response
         rp.parse(response.text.splitlines())
     except requests.exceptions.RequestException as e:  # Catch requests exceptions including Timeout
