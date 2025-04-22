@@ -5,6 +5,7 @@ from google.auth.transport.requests import Request
 import pickle
 import os
 import re
+import fickling
 
 
 # This is used to ensure we only get emails received in the last 24 hours
@@ -23,7 +24,7 @@ def get_credentials():
     creds = None
     if os.path.exists('token.pickle'):
         with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
+            creds = fickling.load(token)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
