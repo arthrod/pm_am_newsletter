@@ -30,7 +30,7 @@ def ph_scrape_urls(url):
     """
     # TODO: refactor this to not require the passing in of the URL
     # Send a GET request to the webpage
-    response = requests.get(url)
+    response = requests.get(url, timeout=60)
 
     # If the GET request is successful, the status code will be 200
     if response.status_code == 200:
@@ -62,7 +62,7 @@ def ph_scrape_text(url):
     """
     # TODO: refactor this to not require the passing in of the URL
     # Send a GET request to the webpage
-    response = requests.get(url)
+    response = requests.get(url, timeout=60)
 
     # If the GET request is successful, the status code will be 200
     if response.status_code == 200:

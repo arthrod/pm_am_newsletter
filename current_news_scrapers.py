@@ -31,7 +31,7 @@ def get_hn_links():
     """ This uses the hackernews API to retrieve URLS posted in the last 24 hours
     :return: list
     """
-    response = requests.get('https://hacker-news.firebaseio.com/v0/topstories.json')
+    response = requests.get('https://hacker-news.firebaseio.com/v0/topstories.json', timeout=60)
     story_ids = response.json()
 
     hn_urls = []
@@ -39,7 +39,7 @@ def get_hn_links():
     one_day_ago = time.time() - 24 * 60 * 60
 
     for story_id in story_ids[:source_url_limit]:  # Only the top 30 to simulate the first page
-        response = requests.get(f'https://hacker-news.firebaseio.com/v0/item/{story_id}.json')
+        response = requests.get(f'https://hacker-news.firebaseio.com/v0/item/{story_id}.json', timeout=60)
         story_data = response.json()
 
         # Not all items are stories (some might be job postings, for example), and not all stories have URLs.
@@ -66,7 +66,7 @@ def get_register_urls():
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
         }
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=60)
 
         if response.status_code == 200:
             content = response.content
@@ -112,7 +112,7 @@ def get_techmeme_urls():
         today = date.today()
         date_string = today.strftime("%y%m%d")
 
-        response = requests.get(url)
+        response = requests.get(url, timeout=60)
 
         if response.status_code == 200:
             content = response.content
