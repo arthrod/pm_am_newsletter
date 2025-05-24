@@ -1,9 +1,9 @@
 import openai
 import time
-import random
 from scrape_articles import scrape_articles
 from datetime import datetime
 import os 
+import secrets
 
 
 
@@ -49,7 +49,7 @@ def process_articles():
                 return summary
 
             except openai.error.ServiceUnavailableError:
-                wait_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
+                wait_time = (2 ** attempt) + (secrets.SystemRandom().randint(0, 1000) / 1000)
                 print(f"Server error, retrying in {wait_time} seconds")
                 time.sleep(wait_time)
         print("Failed to generate response after several retries")
@@ -88,7 +88,7 @@ def process_articles():
                 return summary
 
             except openai.error.ServiceUnavailableError:
-                wait_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
+                wait_time = (2 ** attempt) + (secrets.SystemRandom().randint(0, 1000) / 1000)
                 print(f"Server error, retrying in {wait_time} seconds")
                 time.sleep(wait_time)
         print("Failed to generate response after several retries")
@@ -122,7 +122,7 @@ def process_articles():
 
                 return deduped_urls
             except openai.error.ServiceUnavailableError:
-                wait_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
+                wait_time = (2 ** attempt) + (secrets.SystemRandom().randint(0, 1000) / 1000)
                 print(f"Server error, retrying in {wait_time} seconds")
                 time.sleep(wait_time)
         print("Failed to generate response after several retries")
@@ -156,7 +156,7 @@ def process_articles():
                 summary = response["choices"][0]["message"]["content"].strip()
                 return summary
             except openai.error.ServiceUnavailableError:
-                wait_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
+                wait_time = (2 ** attempt) + (secrets.SystemRandom().randint(0, 1000) / 1000)
                 print(f"Server error, retrying in {wait_time} seconds")
                 time.sleep(wait_time)
         print("Failed to generate response after several retries")
