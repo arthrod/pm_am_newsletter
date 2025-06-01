@@ -1,0 +1,8 @@
+LICENSE
+README.md
+pyproject.toml
+src/news_scraper.egg-info/PKG-INFO
+src/news_scraper.egg-info/SOURCES.txt
+src/news_scraper.egg-info/dependency_links.txt
+src/news_scraper.egg-info/requires.txt
+src/news_scraper.egg-info/top_level.txt

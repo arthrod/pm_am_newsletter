@@ -1,0 +1,11 @@
+newspaper3k
+requests
+openai
+beautifulsoup4
+praw
+google-auth-oauthlib
+google-auth
+sendgrid
+pytz
+pytest
+nltk
