@@ -23,8 +23,13 @@ from sendgrid.helpers.mail import Mail
 
 from scrape_articles import scrape_articles
 
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "YOUR_SENDGRID_API_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "sk-xxxxxxxx")
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+if not SENDGRID_API_KEY:
+    raise ValueError("SENDGRID_API_KEY environment variable not set.")
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY environment variable not set.")
 openai.api_key = OPENAI_API_KEY
 
 
