@@ -1,13 +1,26 @@
-import openai
-import time
-import random
-from scrape_articles import scrape_articles
+import os
 from datetime import datetime
-import os 
+
+from pydantic_ai.direct import model_request_sync
+from pydantic_ai.messages import ModelRequest
+
+from scrape_articles import scrape_articles
+
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
+LLM_MODEL = os.getenv("LLM_MODEL", "gpt4.1-nano")
 
 
+def llm_request(system_prompt: str, user_prompt: str, *, max_tokens: int, temperature: float, model: str | None = None) -> str:
+    """Send a prompt to the configured LLM and return the text response."""
+    model_name = model or LLM_MODEL
+    full_model = model_name if ":" in model_name else f"{LLM_PROVIDER}:{model_name}"
 
-openai.api_key_path = 'openai_keys.py'  # HIDE THIS BEFORE PUBLISHING
+    response = model_request_sync(
+        full_model,
+        [ModelRequest.user_text_prompt(user_prompt, instructions=system_prompt)],
+        model_settings={"max_tokens": max_tokens, "temperature": temperature},
+    )
+    return "".join(getattr(p, "content", "") for p in response.parts).strip()
 
 
 def process_articles():
@@ -29,31 +42,15 @@ def process_articles():
         if len(article_text) > max_length:
             article_text = article_text[:max_length]
             print(f"Article text too long. Truncated to {max_length} characters.")
-        # Proceed with filtering articles
-        for attempt in range(5):
-            try:
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system",
-                         "content": "Analyze the text provided to determine if the article should be included in our content based on the instructions I will provide. We are screening out anything in the following categories..\n\n"
-          "Screen the text for primary topics related to space, automotive, crypto, argriculture, video games, specific video game consoles (xbox, playstation), or specific geographical regions (China or India). If these are the primary focus, respond with: 'irrelevant'. If not 'irrelevant' meaning it is not in one of these forbidden topics then respond with 'relevant'. Only respond with 'relevant' or 'irrelevant', do not return any other response."},
-                        {"role": "user",
-                         "content": article_text}
-                    ],
-                    max_tokens=300,
-                    temperature=.8,
-                )
-                summary = response["choices"][0]["message"]["content"].strip()
-                print(summary)
-                return summary
+        system_prompt = (
+            "Analyze the text provided to determine if the article should be included in our content based on the instructions I will provide. "
+            "We are screening out anything in the following categories..\n\n"
+            "Screen the text for primary topics related to space, automotive, crypto, argriculture, video games, specific video game consoles (xbox, playstation), "
+            "or specific geographical regions (China or India). If these are the primary focus, respond with: 'irrelevant'. If not 'irrelevant' meaning it is not "
+            "in one of these forbidden topics then respond with 'relevant'. Only respond with 'relevant' or 'irrelevant', do not return any other response."
+        )
 
-            except openai.error.ServiceUnavailableError:
-                wait_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
-                print(f"Server error, retrying in {wait_time} seconds")
-                time.sleep(wait_time)
-        print("Failed to generate response after several retries")
-        return None
+        return llm_request(system_prompt, article_text, max_tokens=300, temperature=0.8)
     def filter_articles_relevance(article_text):
         """ This sends the article text to GPT where it evaluates it for relevance to product management. Relevant articles lead to a response of 'product related', irrelevant artielcles lead to a
         response of 'not product related'. The articles with the 'not product related' tag are filtered out of the set of articles to include in the email.
@@ -65,34 +62,16 @@ def process_articles():
         if len(article_text) > max_length:
             article_text = article_text[:max_length]
             print(f"Article text too long. Truncated to {max_length} characters.")
-        # Proceed with filtering articles
-        for attempt in range(5):
-            try:
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system",
-                         "content": "Analyze the text provided to determine its relevance to product management.\n\n"
-          "- Consider the main theme of the article. Ask yourself: Does the theme relate to any aspect of software or technology product management, including but not limited to product development, product strategy, product design, product lifecycle, product marketing, stakeholder management, business models, innovation, or product metrics? Additionally, consider any broader connections to technology or business that might be relevant to product managers, "
-                                    "respond with: 'product related'. By default assume that most technology topics like SaaS software or consumer software apps"
-                                    "are related to product management\n"
-          "- If the text is about engineering tools, releases, or other technical details, evaluate if the context implies its connection to product management decision-making or responsibilities. If it does, respond with 'product related'; if not, 'not product related'.\n"
-          "- If none of the above conditions are met, and the text doesn't focus on product management or its related concepts, respond with: 'not product related'."},
-                        {"role": "user",
-                         "content": article_text}
-                    ],
-                    max_tokens=300,
-                    temperature=.8,
-                )
-                summary = response["choices"][0]["message"]["content"].strip()
-                return summary
+        system_prompt = (
+            "Analyze the text provided to determine its relevance to product management.\n\n"
+            "- Consider the main theme of the article. Ask yourself: Does the theme relate to any aspect of software or technology product management, including but not limited to product development, product strategy, product design, product lifecycle, product marketing, stakeholder management, business models, innovation, or product metrics? Additionally, consider any broader connections to technology or business that might be relevant to product managers, "
+            "respond with: 'product related'. By default assume that most technology topics like SaaS software or consumer software apps"
+            "are related to product management\n"
+            "- If the text is about engineering tools, releases, or other technical details, evaluate if the context implies its connection to product management decision-making or responsibilities. If it does, respond with 'product related'; if not, 'not product related'.\n"
+            "- If none of the above conditions are met, and the text doesn't focus on product management or its related concepts, respond with: 'not product related'."
+        )
 
-            except openai.error.ServiceUnavailableError:
-                wait_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
-                print(f"Server error, retrying in {wait_time} seconds")
-                time.sleep(wait_time)
-        print("Failed to generate response after several retries")
-        return None
+        return llm_request(system_prompt, article_text, max_tokens=300, temperature=0.8)
 
     def remove_duplicates(article_set):
         """ Many sources may cover the same story in a given day. When this happens we only want to include the story one time using one source. The URLs for all scraped articles are sent to GPT
@@ -101,32 +80,17 @@ def process_articles():
         :param str article_set: All the URLs for the scraped articles are combined into a string so they can be sent to GPT for evaluation
         :return: list
         """
-        for attempt in range(5):
-            try:
-                # In this case I used gpt-3.5-turbo-16k because I needed to send all URLs at once so the needed token count was much higher. But this model is twice as expensive so where possible I
-                # used gpt-3.5-turbo
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo-16k",
-                    messages=[
-                        {"role": "system",
-                         "content": "You will receive a set of URLs. Analyze the keywords within each URL to identify potential overlapping content. If multiple URLs seem to discuss the same topic based on shared keywords (for instance, if 3 URLs contain the terms 'microsoft' and 'teams'), choose only one URL, giving preference to the most reputable source based on general knowledge about the source's reputation. After your analysis, provide a comma-separated list of unique URLs that correspond to distinct topics. Your response should only be the list of URLs, without any additional text, line breaks, or '\n' characters."},
-                        {"role": "user",
-                         "content": article_set}
-                    ],
-                    max_tokens=10000,
-                    temperature=.2,
-                )
-                deduped_urls = response["choices"][0]["message"]["content"].replace('\n', '').strip()  # GPT only returns things in string format. So though the prompt asks for a column
-                # separated list, the list actually comes back as a string that you need to parse. On occasion GPT was appending a \n to each URL which caused the subsequent parsing and matching to
-                # break. In the case that happens, this strips out the \n
+        system_prompt = (
+            "You will receive a set of URLs. Analyze the keywords within each URL to identify potential overlapping content. If multiple URLs seem to discuss the same topic based on shared keywords (for instance, if 3 URLs contain the terms 'microsoft' and 'teams'), choose only one URL, giving preference to the most reputable source based on general knowledge about the source's reputation. After your analysis, provide a comma-separated list of unique URLs that correspond to distinct topics. Your response should only be the list of URLs, without any additional text, line breaks, or '\n' characters."
+        )
 
-                return deduped_urls
-            except openai.error.ServiceUnavailableError:
-                wait_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
-                print(f"Server error, retrying in {wait_time} seconds")
-                time.sleep(wait_time)
-        print("Failed to generate response after several retries")
-        return None
+        return llm_request(
+            system_prompt,
+            article_set,
+            max_tokens=10000,
+            temperature=0.2,
+            model="gpt4.1-nano",
+        ).replace("\n", "").strip()
   
     def summary_generator(article_text):
         """ This sends the text of each article to GPT to have a summary generated
@@ -138,29 +102,11 @@ def process_articles():
         if len(article_text) > max_length:
             article_text = article_text[:max_length]
             print(f"Article text too long. Truncated to {max_length} characters.")
-        # Proceed with generating the summary
-        for attempt in range(5):
-            try:
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system",
-                         "content": "As an AI specializing in text analysis with a focus on product management, your job is to summarize the provided text. You should generate a one sentence summary "
-                                    "for the text. This summary should first outline the topic of the article and it should then describe why this article is relevant to product managers. The summaries should have a casual and fun but informed tone"},
-                        {"role": "user",
-                         "content": article_text}
-                    ],
-                    max_tokens=200,
-                    temperature=.7,
-                )
-                summary = response["choices"][0]["message"]["content"].strip()
-                return summary
-            except openai.error.ServiceUnavailableError:
-                wait_time = (2 ** attempt) + (random.randint(0, 1000) / 1000)
-                print(f"Server error, retrying in {wait_time} seconds")
-                time.sleep(wait_time)
-        print("Failed to generate response after several retries")
-        return None
+        system_prompt = (
+            "As an AI specializing in text analysis with a focus on product management, your job is to summarize the provided text. You should generate a one sentence summary "
+            "for the text. This summary should first outline the topic of the article and it should then describe why this article is relevant to product managers. The summaries should have a casual and fun but informed tone"
+        )
+        return llm_request(system_prompt, article_text, max_tokens=200, temperature=0.7)
 
     def create_email_intro():
         """ The summaries for all the articles to be included in the email are passed into here and combined with a theme unique to the day of the week. These are sent to GPT where it creates a
@@ -185,23 +131,20 @@ def process_articles():
         else:
             theme = 'Use today to rest so you can be more productive the rest of the week. But be sure to stay up to date with what is happening by reading the newsletter. Sip some tea ' \
                     'while you relax'
-        system_prompt = f"Hey there, AI! You're helping out with an intro for a daily product management newsletter called 'The PM A.M. Newsletter'. Today's theme is '{theme}'—pretty cool, " \
-                        f"right? Don't mention the theme name " \
-                        f"directly but instead incorporate it into the vibe of the overall intro. You'll get to chew on different " \
-                        f"topics tied to the theme. Your job is to whip up an engaging and fun intro that'll give the readers a taste of what's to come in the newsletter. Don't get too caught up in the details of each article—just give a general vibe of the content ahead. And hey, feel free to drop in a casual joke or use emojis when it fits. We're all about keeping our readers alert and on their toes! Remember, the goal is to make product managers feel like they're kicking back with a can of knowledge that'll help them crush it in their work week. Let's make this exciting! Limit the intro to two sentences in length"
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo-16k",
-            messages=[
-                {"role": "system",
-                 "content": system_prompt},
-                {"role": "user",
-                 "content": intro_text}
-            ],
-            max_tokens=200,
-            temperature=.7,
+        system_prompt = (
+            f"Hey there, AI! You're helping out with an intro for a daily product management newsletter called 'The PM A.M. Newsletter'. Today's theme is '{theme}'—pretty cool, "
+            f"right? Don't mention the theme name "
+            f"directly but instead incorporate it into the vibe of the overall intro. You'll get to chew on different "
+            f"topics tied to the theme. Your job is to whip up an engaging and fun intro that'll give the readers a taste of what's to come in the newsletter. Don't get too caught up in the details of each article—just give a general vibe of the content ahead. And hey, feel free to drop in a casual joke or use emojis when it fits. We're all about keeping our readers alert and on their toes! Remember, the goal is to make product managers feel like they're kicking back with a can of knowledge that'll help them crush it in their work week. Let's make this exciting! Limit the intro to two sentences in length"
         )
-        summary = response["choices"][0]["message"]["content"].strip()
-        return summary
+
+        return llm_request(
+            system_prompt,
+            intro_text,
+            max_tokens=200,
+            temperature=0.7,
+            model="gpt4.1-nano",
+        )
 
     # Create a list of unique URLs
     url_set = [f'{scraped_articles[key]["url"]},' for key in scraped_articles]
