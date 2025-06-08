@@ -1,6 +1,7 @@
 import praw
 import datetime
 import reddit_creds
+import newsletter_config as config
 
 def scrape_reddit():
     """ This uses the Reddit API to grab the top posts for the last 24 hours
@@ -15,7 +16,7 @@ def scrape_reddit():
     )
 
     # Get the subreddit
-    subreddit = reddit.subreddit('ProductManagement')
+    subreddit = reddit.subreddit(config.TARGET_SUBREDDIT)
 
     # Get the current time
     now = datetime.datetime.now()

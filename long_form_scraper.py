@@ -5,6 +5,7 @@ from google.auth.transport.requests import Request
 import pickle
 import os
 import re
+import newsletter_config as config
 
 
 # This is used to ensure we only get emails received in the last 24 hours
@@ -56,7 +57,8 @@ def scrape_gmail_articles():
     today = datetime.date.today().isoformat()
 
     # List of specific senders for which you want to grab data
-    senders = ['COMMA SEPARATED LIST OF THE SENDERS YOU WISH TO SCRAPE DETAILS FROM']
+    # This is now sourced from newsletter_config.py
+    senders = config.TARGET_EMAIL_SENDERS
 
     results = service.users().messages().list(userId='me', q=f'after:{timestamp}').execute()
     messages = results.get('messages', [])

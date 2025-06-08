@@ -3,20 +3,16 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import date
 from urllib.parse import urlparse
+import newsletter_config as config
 
-# Exclude domains that commonly cause errors, do not allow for scraping, or post content that is low-quality/not relevant. I was trying limit the amount of urls that would ultimately be rejected
-# but the internet is too big and this is a losing battle. I just rely on the scrape_articles scrape check functionality to filter things now.
-excluded_domains = ['twitter.com', 'mastodon.social', 'blueskyweb.xyz', 'reddit.com', 'forbes.com', 'searchenginejournal.com', 'mas.to', 'socialmediatoday.com',
-                            'cryptonews.com',
-                            'techcrunch.com', 'theinformation.com', 'businessinsider.com', 'indiatimes.com', 'threads.net', 'javascript:tgd','mastodon.online','siliconangle.com','pocket-lint.com',
-                            'androidpolice', "cointelegraph.com",'coindesk.com','bsky.app', 'cryptobriefing.com','cryptopolitan.com','nngroup.com','thehill.com','bizjournals.com',
-                    'techdirt.com', 'theblock.co','nbcbayarea.com','usatoday.com', 'coinpedia.org','unchainedcrypto.com','bitcoinist.com','wsj.com','pymnts.com','americanbanker.com',
-                    'collabora.com', 'barrons.com', 'france24.com','washingtonpost.com','latimes.com','banger.show','awsdocsgpt','lightning.engineering','blockworks.co', 'sci-hub.se','ibtimes.com',
-                    'cnn.com','neowin.net','archive.org','journa.host','phonearena.com','qz.com','lwn.net','appuals.com','inews.co','dealstreetasia.com','bankautomationnews.com','gizchina.com',
-                    'ethereumworldnews.com', 'livemint.com', 'cryptopotato.com','decrypt.co','crypto.news','cryptoslate.com', 'bbcnews.com','ign.com','benshoof.org','github.io', 'slashdot.org',
-                    'nypost.com', 'nytimes.com', 'newsbtc.com', 'substack.com', 'pingwest.com', 'youtube.com', 'github.com', 'play.google.com', 'cnbc.com', 'afb.org', 'techlusive.in']
+# Excluded domains are now sourced from newsletter_config.py
+# This list helps filter out domains that commonly cause errors, are hard to scrape,
+# or post content that is generally low-quality or not relevant to typical newsletter topics.
+# It can be customized in newsletter_config.py based on the TARGET_TOPIC_NAME.
+excluded_domains = config.TARGET_TOPIC_EXCLUDED_DOMAINS
 
 source_url_limit = 30 # Hackernews paginates at 30 links so this simulates the first page from them. And should cover enough of the links on the front page of other sources.
+# TODO: Consider if source_url_limit should also be in config if it needs to vary by topic or source.
 
 
 def has_path_after_domain(url):

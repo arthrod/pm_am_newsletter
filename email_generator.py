@@ -1,4 +1,5 @@
 import datetime
+import re # For cleaning collection name
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition, ContentId
 from product_hunt_scraper import get_ph_grouped_products
@@ -10,6 +11,10 @@ from send_grid_config import SENDGRID_API_KEY
 import base64
 import time
 import pytz
+
+# ChromaDB Integration
+from vector_db_utils import init_chroma_client, get_or_create_collection, add_article_embedding
+import newsletter_config as config
 
 
 def time_until_next_run(target_hour, target_minute):
@@ -32,11 +37,32 @@ def run_newsletter_script():
     """ Gathers all the content, formats the email, and sends
     :return:
     """
+    ### INITIALIZE ChromaDB ###
+    # Clean TARGET_TOPIC_NAME from config for use as a collection name
+    # Replace spaces and special characters with underscores, and lowercase
+    cleaned_topic_name = re.sub(r'\W+', '_', config.TARGET_TOPIC_NAME.lower())
+
+    chroma_client = init_chroma_client(db_path=config.VECTOR_DB_PATH)
+    article_collection = None
+    if chroma_client:
+        collection_name = f"{cleaned_topic_name}_articles"
+        article_collection = get_or_create_collection(client=chroma_client, collection_name=collection_name)
+        if not article_collection:
+            print(f"Failed to get or create ChromaDB collection '{collection_name}'. Embeddings will not be stored.")
+    else:
+        print("Failed to initialize ChromaDB client. Embeddings will not be stored.")
+
     ### GET CONTENT FOR EMAIL ###
-    articles, intro = process_articles()
+    articles, intro = process_articles() # This should now include embeddings in 'articles'
     scraped_articles = articles
     intro_text = intro
-    ph_items = get_ph_grouped_products()
+
+    ph_items = {} # Initialize as empty dict
+    if config.ENABLE_PRODUCT_HUNT_SCRAPER:
+        ph_items = get_ph_grouped_products()
+    else:
+        print("Product Hunt scraper disabled via config.")
+
     reddit_posts = get_reddit_posts()
     long_reads = scrape_gmail_articles()
     image_path = "PATH TO THE IMAGE YOU WANT TO INCLUDE AT TOP OF EMAIL"
@@ -110,9 +136,9 @@ def run_newsletter_script():
 
         # Create the Mail object
         message = Mail(
-            from_email='pmamnews@gmail.com',  # This needs to match an email that you have verified with SendGrid
-            to_emails='pmamnews@gmail.com',  # Put your email here so that you receive it when sent to the BCC'd recipients .
-            subject="Today's Top Product News",  # The subject for the email
+            from_email='pmamnews@gmail.com',  # TODO: Consider moving to config if it changes per topic
+            to_emails='pmamnews@gmail.com',  # TODO: Consider moving to config if it changes per topic
+            subject=f"{config.NEWSLETTER_NAME} - {datetime.date.today().strftime('%B %d, %Y')}",
             html_content=html_content
         )
 
@@ -147,6 +173,40 @@ def run_newsletter_script():
                 print(e.body)
 
     recipients = get_contact_emails_from_list_name(SENDGRID_API_KEY, list_name)
+
+    # Store embeddings before sending the email
+    if article_collection and scraped_articles:
+        print("\nStoring article embeddings in ChromaDB...")
+        today_date_str = datetime.date.today().isoformat()
+        articles_stored_count = 0
+        for article_url, article_data in scraped_articles.items():
+            if article_data and article_data.get('embedding') and article_data.get('title') and article_data.get('summary'):
+                # Ensure embedding is a list of floats, not None or other types
+                embedding_to_store = article_data['embedding']
+                if not isinstance(embedding_to_store, list):
+                    # This can happen if embedding failed and was set to None, or if it's still a numpy array
+                    print(f"Skipping {article_url} - embedding is not a list or is None.")
+                    continue
+
+                metadata = {
+                    'publish_date': today_date_str,
+                    'title': article_data['title'],
+                    'url': article_url, # article_url is the key from scraped_articles
+                    'summary': article_data['summary'], # Storing summary as well for context
+                    'source_topic': config.TARGET_TOPIC_NAME
+                }
+                if add_article_embedding(collection=article_collection, embedding=embedding_to_store, metadata=metadata, article_id=article_url):
+                    articles_stored_count +=1
+                else:
+                    print(f"Failed to store embedding for {article_url}.")
+            else:
+                print(f"Skipping storing embedding for {article_url} due to missing embedding, title, or summary.")
+        print(f"Successfully stored embeddings for {articles_stored_count} articles.")
+    elif not article_collection:
+        print("ChromaDB collection not available. Skipping storing embeddings.")
+    else:
+        print("No articles to store embeddings for.")
+
     send_email(recipients, intro_text, scraped_articles, ph_items, reddit_posts, long_reads, image_path, SENDGRID_API_KEY)
 
 ### CRON TO CONTROL SEND OF EMAIL ###

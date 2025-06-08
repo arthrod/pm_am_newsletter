@@ -17,7 +17,9 @@ dependencies = [
     "sendgrid",
     "pytz",
     "google-genai",
-    "pytest"
+    "pytest",
+    "sentence-transformers",
+    "chromadb"
 ]
 
 [build-system]

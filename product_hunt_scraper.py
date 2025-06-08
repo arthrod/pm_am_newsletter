@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
+import newsletter_config as config
 
 
 def group_by_number(urls, titles, descs):
@@ -92,15 +93,40 @@ def get_ph_grouped_products():
     """ This gets the desired elements from Product Hunt and then matches the URLs, Names, and Descriptions up
     :return: dict
     """
-    base_url = 'https://www.producthunt.com'
+    default_base_url = 'https://www.producthunt.com'
+    # Check if a specific topic path/URL is defined in config
+    if hasattr(config, 'PRODUCT_HUNT_TOPIC_PATH') and config.PRODUCT_HUNT_TOPIC_PATH:
+        # Assuming PRODUCT_HUNT_TOPIC_PATH could be a full URL or just a path segment
+        if config.PRODUCT_HUNT_TOPIC_PATH.startswith('http'):
+            scrape_url = config.PRODUCT_HUNT_TOPIC_PATH
+        else: # it's a path segment
+            scrape_url = urljoin(default_base_url, config.PRODUCT_HUNT_TOPIC_PATH)
+        # The base_url for joining relative /posts/ paths should still be the main site
+        # if the scraped page is a sub-page of producthunt.com
+        base_url_for_joins = default_base_url if scrape_url.startswith(default_base_url) else scrape_url
+    else:
+        scrape_url = default_base_url
+        base_url_for_joins = default_base_url
 
-    scraped_urls = ph_scrape_urls(base_url)
-    scraped_texts = ph_scrape_text(base_url)
+    print(f"Scraping Product Hunt URL: {scrape_url}")
+
+    scraped_urls = ph_scrape_urls(scrape_url)
+    scraped_texts = ph_scrape_text(scrape_url)
+
+    if not scraped_urls or not scraped_texts:
+        print(f"No URLs or texts scraped from Product Hunt ({scrape_url}). Returning empty results.")
+        return {}
 
     # Only the path is stored in the a_tag so you need to join it with the base url
-    ph_urls_final = [urljoin(base_url, url) for url in scraped_urls]
+    ph_urls_final = [urljoin(base_url_for_joins, url) for url in scraped_urls]
 
     # Splitting titles and descriptions from scraped_texts
+    if len(scraped_texts) < 10: # Expect 5 titles and 5 descriptions
+        print(f"Warning: Expected 10 text items (5 titles, 5 descs) from Product Hunt, got {len(scraped_texts)}. Results might be incomplete.")
+        # Pad with empty strings if necessary to avoid IndexError, though group_by_number might still fail if urls are also few.
+        # This indicates a potential scraping issue or change in PH page structure.
+        # For now, we'll let it attempt to process, but this is a fragile point.
+        # A more robust solution would be to ensure lengths match or handle partial data in group_by_number.
     titles = scraped_texts[::2]
     descs = scraped_texts[1::2]
 
